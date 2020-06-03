@@ -1,78 +1,16 @@
 # -*- coding:utf-8 -*-
 import json
-import logging
 import multiprocessing
 import os
 import re
 
-import requests
-from requests.exceptions import RequestException
-
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+from movie.crawl import get
 
 BASE_URL = 'https://movie.douban.com/top250?start={}&filter='
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0'}
-
-
-def append_movies_url(page_url, movies_url_list):
-    r = requests.get(page_url, headers=HEADERS)
-    r.encoding = r.apparent_encoding
-    if not r.status_code == 200:
-        logging.warning('Get url {} fail!'.format(page_url))
-        return
-
-    soup = BeautifulSoup(r.text, 'html.parser')
-    tags = soup.body.ol.children
-    for t in tags:
-        if isinstance(t, Tag):
-            name = t.find('span', class_='title').get_text()
-            url = t.find(href=re.compile("subject"))
-            url = url.get('href')
-            movies_url_list.append(dict(name=name, url=url))
-
-
-def get_moves_urls():
-    # 网站的反爬程序返回状态码418， 需要添加请求header
-    with multiprocessing.Manager():
-        movies_urls = multiprocessing.Manager().list()   # 主进程与子进程共享这个List
-        writers = [multiprocessing.Process(
-            target=append_movies_url,
-            args=(BASE_URL.format(i), movies_urls)) for i in range(0, 250, 25)]
-
-        for w in writers:
-            w.start()
-
-        for w in writers:
-            w.join()
-
-    return movies_urls
-
-
-def get_movie_info(url):
-    # 连续最多尝试3次请求URL
-    count = 0
-    while count < 3:
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=5)
-            r.encoding = 'utf8'
-        except RequestException as e:
-            logging.warning('Get url {0} fail:{1}'.format(url, str(e)))
-            count += 1
-            continue
-
-        if not r.status_code == 200:
-            logging.warning('Get url {} fail!'.format(url))
-            count += 1
-            continue
-
-        break
-
-    if count >= 3:
-        return
-
-    return encap_movie_info(r.text)
 
 
 def encap_movie_info(text):
@@ -115,15 +53,62 @@ def encap_movie_info(text):
     return movie
 
 
-if __name__ == "__main__":
-    data = []
-    urls = get_moves_urls()
+def append_movies_url(page_url, movies_url_list):
+    print('page_url:', page_url)
+    text = get(page_url)
+    if not text:
+        return
+
+    soup = BeautifulSoup(text, 'html.parser')
+    tags = soup.body.ol.children
+    for t in tags:
+        movie_url = dict()
+        if isinstance(t, Tag):
+            movie_url['name'] = t.find('span', class_='title').get_text()
+            url = t.find(href=re.compile("subject"))
+            movie_url['url'] = url.get('href')
+            movies_url_list.append(movie_url)
+
+
+def get_top250_moves_urls():
+    with multiprocessing.Manager():
+        movies_urls = multiprocessing.Manager().list()   # 主进程与子进程共享这个List
+        writers = [multiprocessing.Process(
+            target=append_movies_url,
+            args=(BASE_URL.format(i), movies_urls)) for i in range(0, 250, 25)]
+
+        for w in writers:
+            w.start()
+
+        for w in writers:
+            w.join()
+
+    return movies_urls
+
+
+def get_movie_info(url):
+    info = dict()
+    text = get(url)
+    if text:
+        info = encap_movie_info(text)
+        info['url'] = url
+
+    return info
+
+
+def get_top250_movies():
+    movies = []
+    urls = get_top250_moves_urls()
     for item in urls:
         movie = get_movie_info(item['url'])
-        data.append(movie)
-        print(movie)
+        movies.append(movie)
 
+    return movies
+
+
+def save_top250_movies():
+    movies = get_top250_movies()
     cur_dir = os.path.abspath('.')
     dst_file = os.path.join(cur_dir, 'data', 'top250.json')
     with open(dst_file, 'w', encoding='utf-8') as fp:
-        json.dump(data, fp, indent=4)
+        json.dump(movies, fp, indent=4)

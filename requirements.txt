@@ -18,3 +18,4 @@ django-redis==4.10.0
 celery==4.2.0
 pexpect==4.6.0
 kombu==4.2.2.post1
+wordcloud==1.7.0

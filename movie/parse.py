@@ -70,7 +70,7 @@ def parse(item):
     obj.language.set([i.id for i in languages])
 
 
-def save_top250():
+def parse_top250_to_db():
     cur_dir = os.path.dirname(os.path.abspath(__file__))
     dst_file = os.path.join(cur_dir, 'data', 'top250.json')
     with open(dst_file) as fp:
