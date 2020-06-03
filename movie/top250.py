@@ -35,8 +35,8 @@ def append_movies_url(page_url, movies_url_list):
 
 def get_moves_urls():
     # 网站的反爬程序返回状态码418， 需要添加请求header
-    with multiprocessing.Manager() as mg:
-        movies_urls = mg.list()   # 主进程与子进程共享这个List
+    with multiprocessing.Manager():
+        movies_urls = multiprocessing.Manager().list()   # 主进程与子进程共享这个List
         writers = [multiprocessing.Process(
             target=append_movies_url,
             args=(BASE_URL.format(i), movies_urls)) for i in range(0, 250, 25)]
@@ -124,6 +124,6 @@ if __name__ == "__main__":
         print(movie)
 
     cur_dir = os.path.abspath('.')
-    dst_file = os.path.join(cur_dir, 'data', 'top250_movies.json')
+    dst_file = os.path.join(cur_dir, 'data', 'top250.json')
     with open(dst_file, 'w', encoding='utf-8') as fp:
         json.dump(data, fp, indent=4)
