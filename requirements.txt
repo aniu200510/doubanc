@@ -15,7 +15,7 @@ dnspython==1.15.0
 redis==2.10.6
 django-filter==2.0.0
 django-redis==4.10.0
-celery==4.2.0
+celery==5.2.2
 pexpect==4.6.0
 kombu==4.2.2.post1
 wordcloud==1.7.0
